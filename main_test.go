@@ -64,3 +64,29 @@ func TestReadBIP39FromActualFile(t *testing.T) {
 		t.Fatalf("Expected %d words, got %d", expectedLen, actualLen)
 	}
 }
+
+func TestGenerateBTCAddress(t *testing.T) {
+	// Known valid 12-word BIP39 mnemonic (replace with your own known mnemonic)
+	mnemonic := "mother author steel speak help absurd feature flee photo distance broken long"
+	expectedAddress := "19BmNcEn86JeZpSqjQAP1LMNzr36PvCdRD" // Replace with the expected address for your mnemonic
+
+	address, err := GenerateBTCAddress(mnemonic)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+
+	// Compare the generated address with the expected address
+	if address != expectedAddress {
+		t.Errorf("Expected address %s, got %s", expectedAddress, address)
+	}
+}
+
+func TestGenerateBTCAddress_InvalidMnemonic(t *testing.T) {
+	// Test with an invalid mnemonic
+	invalidMnemonic := "invalid mnemonic phrase"
+
+	address, err := GenerateBTCAddress(invalidMnemonic)
+	if err == nil {
+		t.Fatalf("Expected an error for invalid mnemonic, got address %s", address)
+	}
+}

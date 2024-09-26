@@ -6,6 +6,11 @@ import (
 	"log"
 	"os"
 	"strings"
+
+	"github.com/btcsuite/btcd/btcutil"
+	"github.com/btcsuite/btcd/btcutil/hdkeychain"
+	"github.com/btcsuite/btcd/chaincfg"
+	bip39 "github.com/tyler-smith/go-bip39"
 )
 
 var BIP39Words []string
@@ -92,6 +97,63 @@ func isZeroSlice(slice []int) bool {
 		}
 	}
 	return true
+}
+
+// GenerateBTCAddress generates a Bitcoin address from a 12-word BIP39 mnemonic.
+func GenerateBTCAddress(mnemonic string) (string, error) {
+	// Validate the mnemonic
+	if !bip39.IsMnemonicValid(mnemonic) {
+		return "", fmt.Errorf("invalid mnemonic")
+	}
+
+	// Generate seed from the mnemonic
+	seed := bip39.NewSeed(mnemonic, "")
+
+	// Derive the master key from the seed using BIP32
+	masterKey, err := hdkeychain.NewMaster(seed, &chaincfg.MainNetParams)
+	if err != nil {
+		return "", fmt.Errorf("failed to create master key: %v", err)
+	}
+
+	// Derive the child key (m/44'/0'/0'/0/0 for the first account)
+	childKey, err := masterKey.Derive(hdkeychain.HardenedKeyStart + 44) // BIP44 purpose
+	if err != nil {
+		return "", fmt.Errorf("failed to derive child key: %v", err)
+	}
+
+	childKey, err = childKey.Derive(hdkeychain.HardenedKeyStart) // Coin type: 0 for Bitcoin
+	if err != nil {
+		return "", fmt.Errorf("failed to derive child key: %v", err)
+	}
+
+	childKey, err = childKey.Derive(hdkeychain.HardenedKeyStart) // Account: 0
+	if err != nil {
+		return "", fmt.Errorf("failed to derive child key: %v", err)
+	}
+
+	childKey, err = childKey.Derive(0) // Change: 0 for external chain
+	if err != nil {
+		return "", fmt.Errorf("failed to derive child key: %v", err)
+	}
+
+	childKey, err = childKey.Derive(0) // Address index: 0
+	if err != nil {
+		return "", fmt.Errorf("failed to derive child key: %v", err)
+	}
+
+	// Get the public key from the child key
+	pubKey, err := childKey.ECPubKey()
+	if err != nil {
+		return "", fmt.Errorf("failed to get public key: %v", err)
+	}
+
+	// Generate the Bitcoin address
+	address, err := btcutil.NewAddressPubKey(pubKey.SerializeCompressed(), &chaincfg.MainNetParams)
+	if err != nil {
+		return "", fmt.Errorf("failed to create address: %v", err)
+	}
+
+	return address.EncodeAddress(), nil
 }
 
 func main() {
